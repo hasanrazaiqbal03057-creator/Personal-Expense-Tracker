@@ -1,43 +1,48 @@
 import streamlit as st
 import pandas as pd
+import os
 from datetime import datetime
 
-st.set_page_config(page_title="Expense Tracker", page_icon="💰", layout="wide")
+st.set_page_config(page_title="Expense Tracker", page_icon="💰")
 st.title("💰 Personal Expense Tracker")
-st.write("Manage Your Daily Expenses")
 
-if 'expenses' not in st.session_state:
-    st.session_state.expenses = []
+FILE = "expenses.csv"
 
-with st.sidebar:
-    st.header("Search & Filters")
-    st.text_input("Search Expense")
-    st.selectbox("Select Category", ["All", "Food", "Transport", "Shopping", "Bills", "Fees", "Other"])
-    st.slider("Filter by Amount (Rs.)", 0.0, 1000.0, (0.0, 1000.0))
-
-st.header("Add New Expense")
-c1, c2 = st.columns(2)
-with c1:
-    amount = st.number_input("Amount (PKR)", min_value=1.0, step=10.0)
-    category = st.selectbox("Category", ["Food", "Transport", "Shopping", "Bills", "Fees", "Other"])
-with c2:
-    desc = st.text_input("Description")
-    date = st.date_input("Date", datetime.now())
-
-if st.button("Add Expense", type="primary"):
-    st.session_state.expenses.append({"Amount": amount, "Category": category, "Description": desc, "Date": str(date)})
-    st.success("Added!")
-    st.rerun()
-
-st.header("Dashboard Summary")
-if st.session_state.expenses:
-    df = pd.DataFrame(st.session_state.expenses)
-    total = df["Amount"].sum()
-    st.write(f"**Total Spent: Rs. {total}**")
-    st.write(f"**Total Records: {len(df)}**")
-    st.subheader("Expense Records")
-    st.dataframe(df, use_container_width=True)
+# File load karo
+if os.path.exists(FILE):
+    df = pd.read_csv(FILE)
 else:
-    st.info("No expenses yet. Add from above!")
-    st.subheader("Expense Records")
-    st.write("No data")
+    df = pd.DataFrame(columns=["Date", "Category", "Amount", "Notes"])
+
+# Form
+with st.form("expense_form"):
+    col1, col2 = st.columns(2)
+    with col1:
+        category = st.selectbox("Category", ["Food", "Transport", "Shopping", "Bills", "Other"])
+        amount = st.number_input("Amount", min_value=1)
+    with col2:
+        notes = st.text_input("Notes (e.g. Biryani)")
+        date = st.date_input("Date", datetime.now())
+    
+    submit = st.form_submit_button("Add Expense")
+
+    if submit:
+        new_data = pd.DataFrame([[date, category, amount, notes]], columns=df.columns)
+        df = pd.concat([df, new_data], ignore_index=True)
+        df.to_csv(FILE, index=False)
+        st.success("Expense Added & Saved Forever! ✅")
+        st.rerun()
+
+st.divider()
+st.subheader("Expense History")
+
+if not df.empty:
+    st.dataframe(df, use_container_width=True)
+    st.metric("Total Kharcha", f"Rs. {df['Amount'].sum()}")
+else:
+    st.info("No expenses yet.")
+
+if st.button("Clear All Data"):
+    if os.path.exists(FILE):
+        os.remove(FILE)
+    st.rerun()
